@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CineVerse - Filmes</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Plus Jakarta Sans', sans-serif; background:#09070d; color:white; }
+    .card { background:#1d1726; border:1px solid #382d45; }
+    .field { width:100%; background:#100d15; border:1px solid #382d45; border-radius:9px; padding:12px; color:white; outline:none; }
+    .field:focus { border-color:#c084fc; }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect}=React;
+
+function App(){
+  const apiUrl = 'http://localhost:8080/api/filmes';
+  const [filmes,setFilmes] = useState([]);
+  const [form,setForm] = useState({titulo:'',genero:'Ação',ano:'',diretor:'',duracao:'',classificacaoIndicativa:'',paisOrigem:'',sinopse:''});
+  const [editando,setEditando] = useState(null);
+  const [mostrarForm,setMostrarForm] = useState(false);
+  const [mensagem,setMensagem] = useState('');
+
+  async function carregar(){
+    try{
+      const resposta = await fetch(apiUrl);
+      if(!resposta.ok) throw new Error();
+      const dados = await resposta.json();
+      setFilmes(Array.isArray(dados) ? dados : []);
+      setMensagem('');
+    }catch{
+      setMensagem('Não foi possível conectar à API. Confira se o Spring Boot está executando.');
+    }
+  }
+
+  useEffect(()=>{carregar();},[]);
+
+  async function salvar(e){
+    e.preventDefault();
+    const dados = {
+      titulo: form.titulo,
+      genero: form.genero,
+      ano: form.ano ? Number(form.ano) : null,
+      diretor: form.diretor,
+      duracao: form.duracao ? Number(form.duracao) : null,
+      classificacao: form.classificacaoIndicativa,
+      pais: form.paisOrigem,
+      sinopse: form.sinopse
+    };
+    try{
+      const resposta = await fetch(editando === null ? apiUrl : `${apiUrl}/${editando}`,{
+        method: editando === null ? 'POST' : 'PUT',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify(dados)
+      });
+      if(!resposta.ok) throw new Error();
+      setForm({titulo:'',genero:'Ação',ano:'',diretor:'',duracao:'',classificacaoIndicativa:'',paisOrigem:'',sinopse:''});
+      setEditando(null);
+      setMostrarForm(false);
+      setMensagem('Filme salvo com sucesso!');
+      carregar();
+    }catch{
+      setMensagem('Erro ao salvar. Verifique a API e os campos enviados.');
+    }
+  }
+
+  function editar(f){
+    setForm({
+      titulo:f.titulo||'', genero:f.genero||'Ação', ano:f.ano??'', diretor:f.diretor||'',
+      duracao:f.duracao??'', classificacaoIndicativa:f.classificacao||'',
+      paisOrigem:f.pais||'', sinopse:f.sinopse||''
+    });
+    setEditando(f.id);
+    setMostrarForm(true);
+  }
+
+  async function excluir(id){
+    if(!confirm('Deseja excluir este filme?')) return;
+    try{
+      const resposta = await fetch(`${apiUrl}/${id}`,{method:'DELETE'});
+      if(!resposta.ok) throw new Error();
+      setMensagem('Filme excluído.');
+      carregar();
+    }catch{
+      setMensagem('Não foi possível excluir o filme.');
+    }
+  }
+
+  return <div className="min-h-screen">
+    <header className="bg-black border-b border-white/10 px-6 py-5">
+      <div className="max-w-5xl mx-auto flex items-center justify-between">
+        <h1 className="text-2xl font-extrabold">🎬 Cine<span className="text-purple-300">Verse</span></h1>
+        <button onClick={()=>{setForm({titulo:'',genero:'Ação',ano:'',diretor:'',duracao:'',classificacaoIndicativa:'',paisOrigem:'',sinopse:''});setEditando(null);setMostrarForm(!mostrarForm);}}
+          className="bg-purple-300 text-black rounded-lg px-4 py-2 text-sm font-bold">
+          {mostrarForm ? 'Fechar' : '+ Novo filme'}
+        </button>
+      </div>
+    </header>
+
+    <main className="max-w-5xl mx-auto p-6">
+      <section className="rounded-2xl p-7 mb-7" style={{background:'linear-gradient(120deg,#38204e,#17101f)'}}>
+        <p className="text-purple-300 text-xs font-bold uppercase tracking-widest mb-2">Catálogo de cinema</p>
+        <h2 className="text-3xl font-extrabold mb-2">Seus filmes favoritos.</h2>
+        <p className="text-purple-100/70 text-sm">Cadastre e organize seus filmes em um só lugar.</p>
+      </section>
+
+      {mensagem && <p className="mb-5 bg-purple-500/10 border border-purple-400/30 text-purple-200 rounded-lg p-3 text-sm">{mensagem}</p>}
+
+      {mostrarForm && <form onSubmit={salvar} className="card rounded-xl p-5 mb-7 space-y-4">
+        <h3 className="font-bold text-lg">{editando === null ? 'Cadastrar filme' : 'Editar filme'}</h3>
+        <div>
+          <label className="block text-xs text-purple-200 mb-1">Título *</label>
+          <input className="field" required value={form.titulo} onChange={e=>setForm({...form,titulo:e.target.value})} placeholder="Nome do filme"/>
+        </div>
+        <div className="grid sm:grid-cols-3 gap-3">
+          <div>
+            <label className="block text-xs text-purple-200 mb-1">Gênero</label>
+            <select className="field" value={form.genero} onChange={e=>setForm({...form,genero:e.target.value})}>
+              {['Ação','Aventura','Animação','Comédia','Drama','Fantasia','Ficção científica','Romance','Suspense','Terror','Outro'].map(g=><option key={g}>{g}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs text-purple-200 mb-1">Ano</label>
+            <input className="field" type="number" min="1888" max="2100" value={form.ano} onChange={e=>setForm({...form,ano:e.target.value})} placeholder="2026"/>
+          </div>
+          <div>
+            <label className="block text-xs text-purple-200 mb-1">Diretor</label>
+            <input className="field" value={form.diretor} onChange={e=>setForm({...form,diretor:e.target.value})} placeholder="Nome do diretor"/>
+          </div>
+        </div>
+        <div className="grid sm:grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs text-purple-200 mb-1">Duração (minutos)</label>
+            <input className="field" type="number" min="1" value={form.duracao} onChange={e=>setForm({...form,duracao:e.target.value})} placeholder="120"/>
+          </div>
+          <div>
+            <label className="block text-xs text-purple-200 mb-1">Classificação indicativa</label>
+            <select className="field" value={form.classificacaoIndicativa} onChange={e=>setForm({...form,classificacaoIndicativa:e.target.value})}>
+              <option value="">Selecione</option>
+              {['Livre','10 anos','12 anos','14 anos','16 anos','18 anos'].map(c=><option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs text-purple-200 mb-1">País de origem</label>
+            <input className="field" value={form.paisOrigem} onChange={e=>setForm({...form,paisOrigem:e.target.value})} placeholder="Ex.: Brasil"/>
+          </div>
+          <div>
+            <label className="block text-xs text-purple-200 mb-1">Sinopse</label>
+            <textarea className="field min-h-24" value={form.sinopse} onChange={e=>setForm({...form,sinopse:e.target.value})} placeholder="Resumo do filme"/>
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <button className="bg-purple-300 text-black rounded-lg px-5 py-2 font-bold text-sm" type="submit">Salvar</button>
+          <button className="border border-white/20 rounded-lg px-5 py-2 text-sm" type="button" onClick={()=>setMostrarForm(false)}>Cancelar</button>
+        </div>
+      </form>}
+
+      <div className="mb-5">
+        <h3 className="text-xl font-bold">Filmes cadastrados</h3>
+        <p className="text-sm text-purple-100/50">{filmes.length} filme(s)</p>
+      </div>
+
+      {filmes.length === 0 ? <div className="card rounded-xl p-10 text-center text-purple-100/60">Nenhum filme cadastrado.</div> :
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filmes.map((f,i)=><article key={f.id||i} className="card rounded-xl p-5">
+            <div className="text-3xl mb-3">🎞️</div>
+            <h4 className="font-bold text-lg">{f.titulo}</h4>
+            <p className="text-sm text-purple-200 mt-1">{f.genero || 'Gênero não informado'}</p>
+            <p className="text-sm text-white/60 mt-3">{f.ano || 'Ano não informado'} {f.diretor ? '• '+f.diretor : ''}</p>
+            {f.duracao != null && <p className="text-sm text-white/60 mt-1">Duração: {f.duracao} min</p>}
+            {f.classificacao && <p className="text-sm text-white/60 mt-1">Classificação: {f.classificacao}</p>}
+            {f.pais && <p className="text-sm text-white/60 mt-1">País: {f.pais}</p>}
+            {f.sinopse && <p className="text-sm text-white/70 mt-3">{f.sinopse}</p>}
+            <div className="flex gap-2 mt-5 pt-4 border-t border-white/10">
+              <button onClick={()=>editar(f)} className="flex-1 border border-white/20 rounded-lg py-2 text-sm hover:bg-white/10">Editar</button>
+              <button onClick={()=>excluir(f.id)} className="flex-1 border border-red-400/30 text-red-300 rounded-lg py-2 text-sm hover:bg-red-500/10">Excluir</button>
+            </div>
+          </article>)}
+        </div>
+      }
+    </main>
+  </div>;
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
